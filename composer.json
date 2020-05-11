@@ -1,0 +1,13 @@
+{
+    "name": "viewsreference_filter",
+    "type": "drupal-module",
+    "description": "Expose filters for editors to configure views",
+    "keywords": [
+    ],
+    "homepage": "https://www.drupal.org/project/viewsreference_filter",
+    "minimum-stability": "dev",
+    "support": {
+        "issues": "https://www.drupal.org/project/issues/viewsreference_filter",
+        "source": "http://cgit.drupalcode.org/viewsreference_filter"
+    }
+}

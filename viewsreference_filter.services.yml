@@ -1,0 +1,7 @@
+services:
+  logger.channel.viewsreference_filter:
+    parent: logger.channel_base
+    arguments: ['viewsreference_filter']
+  viewsreference_filter.views_utility:
+    class: Drupal\viewsreference_filter\ViewsRefFilterUtility
+    arguments: ['@logger.channel.viewsreference_filter', '@entity_type.manager', '@views.executable']

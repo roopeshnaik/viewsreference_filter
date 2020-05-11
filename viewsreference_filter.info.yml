@@ -1,0 +1,12 @@
+name: 'Views Reference Field Filter'
+type: module
+description: 'Expose filters for editors to configure referenced views'
+core: 8.x
+package: 'Views'
+dependencies:
+  - viewsreference:viewsreference
+
+# Information added by Drupal.org packaging script on 2020-04-20
+version: '1.0.0-alpha1'
+project: 'viewsreference_filter'
+datestamp: 1587374111
