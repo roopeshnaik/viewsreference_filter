@@ -1,0 +1,182 @@
+diff --git a/src/Plugin/ViewsReferenceSetting/ViewsReferenceExposedFilters.php b/src/Plugin/ViewsReferenceSetting/ViewsReferenceExposedFilters.php
+index 647fa08..3088de2 100644
+--- a/src/Plugin/ViewsReferenceSetting/ViewsReferenceExposedFilters.php
++++ b/src/Plugin/ViewsReferenceSetting/ViewsReferenceExposedFilters.php
+@@ -35,11 +35,15 @@ class ViewsReferenceExposedFilters extends PluginBase implements ViewsReferenceS
+    * TaxonomyLookup constructor.
+    *
+    * @param array $configuration
+-   * @param $pluginId
+-   * @param $pluginDefinition
++   *   The Configuration.
++   * @param string $pluginId
++   *   The Plugin Id.
++   * @param string $pluginDefinition
++   *   The Plugin Definition.
++   * @param \Drupal\viewsreference_filter\ViewsRefFilterUtilityInterface $viewsUtility
++   *   The Utility View Functions.
+    */
+-  public function __construct(array $configuration,
+-                              $pluginId, $pluginDefinition, ViewsRefFilterUtilityInterface $viewsUtility) {
++  public function __construct(array $configuration, $pluginId, $pluginDefinition, ViewsRefFilterUtilityInterface $viewsUtility) {
+     parent::__construct($configuration, $pluginId, $pluginDefinition);
+     $this->viewsUtility = $viewsUtility;
+   }
+@@ -61,8 +65,7 @@ class ViewsReferenceExposedFilters extends PluginBase implements ViewsReferenceS
+    */
+   public function alterFormField(&$form_field) {
+ 
+-    $view = $this->viewsUtility->loadView($this->configuration['view_name'],
+-      $this->configuration['display_id']);
++    $view = $this->viewsUtility->loadView($this->configuration['view_name'], $this->configuration['display_id']);
+     if (!$view) {
+       $form_field = [];
+       return;
+@@ -72,6 +75,19 @@ class ViewsReferenceExposedFilters extends PluginBase implements ViewsReferenceS
+     unset($form_field['#default_value']);
+     $form_field['#type'] = 'container';
+     $form_field['#tree'] = TRUE;
++    $exposed = FALSE;
++
++    // Set the filterset.
++    $form_field['filter_options'] = [
++      '#type' => 'details',
++      '#title' => t("Filter Options"),
++      '#open' => TRUE,
++    ];
++    $form_field['filter_options']['show_all_on_page'] = [
++      '#type' => 'checkbox',
++      '#title' => $this->t('Show all filters on page'),
++      '#default_value' => (isset($current_values['filter_options']['show_all_on_page']) && $current_values['filter_options']['show_all_on_page']),
++    ];
+ 
+     // Some plugin may look into current exposed input to change some behaviour,
+     // i.e. setting a default value (see SHS for an example). So set current
+@@ -93,47 +109,111 @@ class ViewsReferenceExposedFilters extends PluginBase implements ViewsReferenceS
+       /** @var \Drupal\views\Plugin\views\ViewsHandlerInterface $handler */
+       foreach ($view->$type as $id => $handler) {
+         if ($handler->canExpose() && $handler->isExposed()) {
+-          $handler->buildExposedForm($form_field, $form_state);
++          $exposed = TRUE;
++          $form_field['filter_options']['header_text_' . $id] = [
++            '#type' => 'item',
++            '#markup' => $handler->adminLabel(TRUE),
++            '#prefix' => '<h3>',
++            '#suffix' => '</h3>',
++          ];
++          $form_field['filter_options']['show_on_page_' . $id] = [
++            '#type' => 'checkbox',
++            '#title' => $this->t('Expose this filter to visitors, to allow them to change it'),
++            '#default_value' => (isset($current_values['filter_options']['show_on_page_' . $id]) && $current_values['filter_options']['show_on_page_' . $id]),
++          ];
++
++          $handler->buildExposedForm($form_field['filter_options'], $form_state);
+ 
+           if ($info = $handler->exposedInfo()) {
+-            if (isset($form_field[$info['value']])) {
++            if (isset($form_field['filter_options'][$info['value']])) {
+               // Method buildExposedForm() gets rid of element titles, unless
+               // type is 'checkbox'. So restore it if missing.
+-              if (empty($form_field[$info['value']]['#title'])) {
+-                $form_field[$info['value']]['#title'] = $this->t('@label', ['@label' => $info['label']]);
++              if (empty($form_field['filter_options'][$info['value']]['#title'])) {
++                $form_field['filter_options'][$info['value']]['#title'] = $this->t('@label', ['@label' => $info['label']]);
+               }
+-
+               // Manually set default values, until we don't handle these
+               // properly from form_state.
+               // @todo: use (Sub)FormState to handle default_value.
+-              if (isset($current_values[$info['value']])) {
+-                $form_field[$info['value']]['#default_value'] = $current_values[$info['value']];
++              if (isset($current_values['filter_options'][$info['value']])) {
++                if ($form_field['filter_options'][$info['value']]['#type'] == 'entity_autocomplete') {
++                  // Set values for taxonomy autocomplete field.
++                  // @todo: Setting default value here throws error, need to handle default_value in formstate.
++                  // $lookup_value = $this->viewsUtility->lookup_field($current_values['filter_options'][$info['value']]);
++                  // $form_field['filter_options'][$info['value']]['#default_value'] = $lookup_value;
++                }
++                else {
++                  $form_field['filter_options'][$info['value']]['#default_value'] = $current_values['filter_options'][$info['value']];
++                }
+               }
+             }
+           }
+         }
+       }
+     }
++    // Hide fieldset if no exposed filters.
++    $form_field['filter_options']['#access'] = $exposed;
+   }
+ 
+   /**
+    * {@inheritdoc}
+    */
+   public function alterView(ViewExecutable $view, $values) {
+-    if (!empty($values) && is_array($values)) {
++    // Get exposed filter visibility, and remove configuration.
++    $show_all_on_page = $values['filter_options']['show_all_on_page'];
++    unset($values['filter_options']['show_all_on_page']);
++    // Get values.
++    $filter_options = $values['filter_options'];
++    unset($values['filter_options']);
++    if (!empty($filter_options) && is_array($filter_options)) {
++      // @todo: Doing this without loop.
++      // Separate out the show on page values.
++      foreach ($filter_options as $index => $value) {
++        if ((strpos($index, "show_on_page") === 0)) {
++          $show_on_page_values[$index] = $value;
++        }
++        elseif ((strpos($index, "header_text") === FALSE)) {
++          $values[$index] = $value;
++        }
++      }
++      // Get view filters.
+       $view_filters = $view->display_handler->getOption('filters');
+-      $filters = [];
+-      foreach ($values as $index => $value) {
+-        if (!empty($value) && isset($view_filters[$index])) {
+-          $filters[$index] = $value;
++      $show_on_page = FALSE;
++      foreach ($show_on_page_values as $index => $show_value) {
++        $index = ltrim($index, 'show_on_page');
++        if (!empty($values[$index])) {
++          if (isset($view_filters[$index]['type']) && $view_filters[$index]['type'] == 'textfield') {
++            // Set the filter values for autocomplete.
++          }
++          else {
++            $view_filters[$index]['value'] = $values[$index];
++          }
+         }
++        // @todo: Case for boolean type condition (refactor needed).
++        if (isset($view_filters[$index]["plugin_id"]) && $view_filters[$index]["plugin_id"] == 'boolean') {
++          $view_filters[$index]['value'] = $values[$index];
++        }
++        if (!$show_value) {
++          // Filters are not exposed.
++          $view_filters[$index]['exposed'] = FALSE;
++          // Todo: how to set 'All' values for view filters.
++          if (isset($view_filters[$index]['value']) && $view_filters[$index]['value'] == 'All') {
++            unset($view_filters[$index]);
++          }
++        }
++        else {
++          $show_all_on_page = TRUE;
++          $show_on_page = TRUE;
++        }
++      }
++      // Reset the view filters to new values.
++      if ($show_on_page) {
++        $view->display_handler->setOption('filters', $view_filters);
+       }
+-      if ($filters) {
+-        $view->setExposedInput($filters);
++      if (!$show_all_on_page) {
++        // Force exposed filters form to not display when rendering the view.
++        $view->display_handler->setOption('exposed_block', TRUE);
+       }
+     }
+-    // Force exposed filters form to not display when rendering the view.
+-    $view->display_handler->setOption('exposed_block', TRUE);
+   }
+ 
+ }
