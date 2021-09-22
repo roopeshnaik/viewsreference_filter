@@ -49,26 +49,23 @@ class ViewsRefFilterUtility implements ViewsRefFilterUtilityInterface {
    * {@inheritdoc}
    */
   public function loadView($view_name, $display_id) {
-    static $view;
-
-    if (!isset($view)) {
-      if (!empty($view_name) && !empty($display_id)) {
-        try {
-          $view = $this->entityTypeManager
-            ->getStorage('view')
-            ->load($view_name);
-          $view = $this->viewsExecutableFactory->get($view);
-          $view->setDisplay($display_id);
-          $view->initHandlers();
-        }
-        catch (\Exception $e) {
-          $message = "Exception:" . $e;
-        }
+    $view = null;
+    if (!empty($view_name) && !empty($display_id)) {
+      try {
+        $view = $this->entityTypeManager
+          ->getStorage('view')
+          ->load($view_name);
+        $view = $this->viewsExecutableFactory->get($view);
+        $view->setDisplay($display_id);
+        $view->initHandlers();
       }
-      else {
-        $message = "Either the Views Name: '" . $view_name . "' ";
-        $message .= "or Dispay Id: '" . $display_id . "' were not set.";
+      catch (\Exception $e) {
+        $message = "Exception:" . $e;
       }
+    }
+    else {
+      $message = "Either the Views Name: '" . $view_name . "' ";
+      $message .= "or Dispay Id: '" . $display_id . "' were not set.";
     }
 
     // Log error $message if isset.
