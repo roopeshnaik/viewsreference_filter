@@ -76,4 +76,22 @@ class ViewsRefFilterUtility implements ViewsRefFilterUtilityInterface {
     return $view;
   }
 
+  /**
+   * The utility function to format terms.
+   *
+   * @param array $tids
+   *   The term id array.
+   *
+   * @return string
+   *   The formatted terms.
+   */
+  public function buildAutocompleteTerms(array $tids) {
+    foreach ($tids as $tid => $value) {
+      $term = \Drupal::entityTypeManager()->getStorage('taxonomy_term')->load($value['target_id']);
+      $formatted_terms[] = $term->getName() . ' (' . $value['target_id'] . ')';
+    }
+    $formatted_terms_data = implode(', ', $formatted_terms);
+    return $formatted_terms_data;
+  }
+
 }
