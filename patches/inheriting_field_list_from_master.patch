@@ -1,0 +1,17 @@
+Index: web/modules/contrib/viewsreference_filter/src/Plugin/ViewsReferenceSetting/ViewsReferenceFieldsOverride.php
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- web/modules/contrib/viewsreference_filter/src/Plugin/ViewsReferenceSetting/ViewsReferenceFieldsOverride.php	(date 1612470047771)
++++ web/modules/contrib/viewsreference_filter/src/Plugin/ViewsReferenceSetting/ViewsReferenceFieldsOverride.php	(date 1612470047771)
+@@ -111,6 +111,9 @@
+   public function alterView(ViewExecutable $view, $values) {
+     if (isset($values['fields_override'])) {
+       $fields_override = $values['fields_override'];
++      if (empty($view->display_handler->options["fields"])) {
++        $view->display_handler->options["fields"] = $view->display_handler->default_display->options["fields"];
++      }
+       foreach ($view->display_handler->options["fields"] as $field_name => $field_value) {
+         if (isset($fields_override[$field_name])) {
+           // Remove the field if it not selected to display.

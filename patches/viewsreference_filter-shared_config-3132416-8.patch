@@ -1,0 +1,47 @@
+diff --git a/src/ViewsRefFilterUtility.php b/src/ViewsRefFilterUtility.php
+index e237935..7eb3870 100644
+--- a/src/ViewsRefFilterUtility.php
++++ b/src/ViewsRefFilterUtility.php
+@@ -49,27 +49,25 @@ class ViewsRefFilterUtility implements ViewsRefFilterUtilityInterface {
+    * {@inheritdoc}
+    */
+   public function loadView($view_name, $display_id) {
+-    static $view;
++    $view = null;
+ 
+-    if (!isset($view)) {
+-      if (!empty($view_name) && !empty($display_id)) {
+-        try {
+-          $view = $this->entityTypeManager
+-            ->getStorage('view')
+-            ->load($view_name);
+-          $view = $this->viewsExecutableFactory->get($view);
+-          $view->setDisplay($display_id);
+-          $view->initHandlers();
+-        }
+-        catch (\Exception $e) {
+-          $message = "Exception:" . $e;
+-        }
++    if (!empty($view_name) && !empty($display_id)) {
++      try {
++        $view = $this->entityTypeManager
++          ->getStorage('view')
++          ->load($view_name);
++        $view = $this->viewsExecutableFactory->get($view);
++        $view->setDisplay($display_id);
++        $view->initHandlers();
+       }
+-      else {
+-        $message = "Either the Views Name: '" . $view_name . "' ";
+-        $message .= "or Dispay Id: '" . $display_id . "' were not set.";
++      catch (\Exception $e) {
++        $message = "Exception:" . $e;
+       }
+     }
++    else {
++      $message = "Either the Views Name: '" . $view_name . "' ";
++      $message .= "or Dispay Id: '" . $display_id . "' were not set.";
++    }
+ 
+     // Log error $message if isset.
+     if (isset($message)) {
