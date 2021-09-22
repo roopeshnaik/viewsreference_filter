@@ -1,14 +1,13 @@
 diff --git a/src/ViewsRefFilterUtility.php b/src/ViewsRefFilterUtility.php
-index e237935..7eb3870 100644
+index 24ce2f7..a827daf 100644
 --- a/src/ViewsRefFilterUtility.php
 +++ b/src/ViewsRefFilterUtility.php
-@@ -49,27 +49,25 @@ class ViewsRefFilterUtility implements ViewsRefFilterUtilityInterface {
-    * {@inheritdoc}
+@@ -48,27 +48,24 @@ class ViewsRefFilterUtility implements ViewsRefFilterUtilityInterface {
+    * @return \Drupal\Core\Entity\EntityInterface|mixed|null
     */
    public function loadView($view_name, $display_id) {
 -    static $view;
-+    $view = null;
- 
+-
 -    if (!isset($view)) {
 -      if (!empty($view_name) && !empty($display_id)) {
 -        try {
@@ -22,6 +21,7 @@ index e237935..7eb3870 100644
 -        catch (\Exception $e) {
 -          $message = "Exception:" . $e;
 -        }
++    $view = null;
 +    if (!empty($view_name) && !empty($display_id)) {
 +      try {
 +        $view = $this->entityTypeManager
