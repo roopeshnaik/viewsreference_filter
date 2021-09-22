@@ -3,11 +3,12 @@
 namespace Drupal\viewsreference_filter\Plugin\ViewsReferenceSetting;
 
 use Drupal\Component\Plugin\PluginBase;
+use Drupal\Core\Annotation\Translation;
 use Drupal\Core\Form\FormState;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\views\ViewExecutable;
-use Drupal\viewsreference\Plugin\ViewsReferenceSettingInterface;
+use Drupal\viewsreference\Annotation\ViewsReferenceSetting;
 use Drupal\viewsreference_filter\ViewsRefFilterUtilityInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -20,14 +21,13 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  *   default_value = "",
  * )
  */
-class ViewsReferenceExposedFilters extends PluginBase implements ViewsReferenceSettingInterface, ContainerFactoryPluginInterface {
+class ViewsReferenceExposedFilters extends PluginBase implements ContainerFactoryPluginInterface {
 
   use StringTranslationTrait;
 
   /**
    * The factory to load a view executable with.
    *
-   * @var \Drupal\views\ViewExecutableFactory
    */
   protected $viewsUtility;
 
@@ -35,11 +35,20 @@ class ViewsReferenceExposedFilters extends PluginBase implements ViewsReferenceS
    * TaxonomyLookup constructor.
    *
    * @param array $configuration
-   * @param $pluginId
-   * @param $pluginDefinition
+   *   The configuration.
+   * @param string $pluginId
+   *   The plugin_id for the plugin instance.
+   * @param mixed $pluginDefinition
+   *   The plugin implementation definition.
+   * @param \Drupal\viewsreference_filter\ViewsRefFilterUtilityInterface $viewsUtility
+   *   The views reference filter utility.
    */
-  public function __construct(array $configuration,
-                              $pluginId, $pluginDefinition, ViewsRefFilterUtilityInterface $viewsUtility) {
+  public function __construct(
+    array $configuration,
+    $pluginId,
+    $pluginDefinition,
+    ViewsRefFilterUtilityInterface $viewsUtility
+  ) {
     parent::__construct($configuration, $pluginId, $pluginDefinition);
     $this->viewsUtility = $viewsUtility;
   }
@@ -90,8 +99,8 @@ class ViewsReferenceExposedFilters extends PluginBase implements ViewsReferenceS
     // Go through each handler and let it generate its exposed widget.
     // @see ViewExposedForm::buildForm()
     foreach ($view->display_handler->handlers as $type => $value) {
-      /** @var \Drupal\views\Plugin\views\ViewsHandlerInterface $handler */
-      foreach ($view->$type as $id => $handler) {
+      /** @var \Drupal\views\Plugin\views\HandlerBase $handler */
+      foreach ($view->$type as $handler) {
         if ($handler->canExpose() && $handler->isExposed()) {
           $handler->buildExposedForm($form_field, $form_state);
 

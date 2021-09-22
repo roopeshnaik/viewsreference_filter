@@ -3,15 +3,20 @@
 namespace Drupal\viewsreference_filter;
 
 /**
- * Interface ViewsRefFilterUtilityInterface.
+ * The Views Reference Filter Utility Interface.
  */
 interface ViewsRefFilterUtilityInterface {
 
   /**
-   * @param $view_name
-   * @param $display_id
+   * Load the view.
+   *
+   * @param string $view_name
+   *   The view id.
+   * @param string $display_id
+   *   The display id.
    *
    * @return mixed
+   *   Return the view.
    */
   public function loadView($view_name, $display_id);
 
