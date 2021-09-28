@@ -11,6 +11,7 @@ use Drupal\views\ViewExecutable;
 use Drupal\viewsreference\Annotation\ViewsReferenceSetting;
 use Drupal\viewsreference_filter\ViewsRefFilterUtilityInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Drupal\viewsreference\Plugin\ViewsReferenceSettingInterface;
 
 /**
  * The views reference setting plugin for exposed filters, for editors.
@@ -21,7 +22,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  *   default_value = "",
  * )
  */
-class ViewsReferenceExposedFilters extends PluginBase implements ContainerFactoryPluginInterface {
+class ViewsReferenceExposedFilters extends PluginBase implements ViewsReferenceSettingInterface, ContainerFactoryPluginInterface {
 
   use StringTranslationTrait;
 
@@ -81,13 +82,10 @@ class ViewsReferenceExposedFilters extends PluginBase implements ContainerFactor
     unset($form_field['#default_value']);
     $form_field['#type'] = 'container';
     $form_field['#tree'] = TRUE;
-    $exposed = FALSE;
-
-    // Set the filterset.
-    $form_field['filter_options'] = [
-      '#type' => 'details',
-      '#title' => t("Filter Options"),
-      '#open' => TRUE,
+    $form_field['vr_exposed_filters_visible'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Show Filters on Page'),
+      '#default_value' => (isset($current_values['vr_exposed_filters_visible']) && $current_values['vr_exposed_filters_visible']),
     ];
 
     // Some plugin may look into current exposed input to change some behaviour,
@@ -108,145 +106,72 @@ class ViewsReferenceExposedFilters extends PluginBase implements ContainerFactor
     // @see ViewExposedForm::buildForm()
     foreach ($view->display_handler->handlers as $type => $value) {
       /** @var \Drupal\views\Plugin\views\HandlerBase $handler */
-      foreach ($view->$type as $id => $handler) {
+      foreach ($view->$type as $handler) {
         if ($handler->canExpose() && $handler->isExposed()) {
-          $exposed = TRUE;
-          $form_field['filter_options']['header_text_' . $id] = [
-            '#type' => 'item',
-            '#markup' => ($handler->options['expose']['label']) ? $handler->options['expose']['label'] : $handler->adminLabel(),
-            '#prefix' => '<h3>',
-            '#suffix' => '</h3>',
-          ];
-          $form_field['filter_options']['show_on_page_' . $id] = [
-            '#type' => 'checkbox',
-            '#title' => $this->t('Expose this filter to visitors, to allow them to change it'),
-            '#default_value' => (isset($current_values['filter_options']['show_on_page_' . $id]) && $current_values['filter_options']['show_on_page_' . $id]),
-          ];
-
-          $handler->buildExposedForm($form_field['filter_options'], $form_state);
+          $handler->buildExposedForm($form_field, $form_state);
 
           if ($info = $handler->exposedInfo()) {
-            if (isset($form_field['filter_options'][$info['value']])) {
+            if (isset($form_field[$info['value']])) {
               // Method buildExposedForm() gets rid of element titles, unless
               // type is 'checkbox'. So restore it if missing.
-              if (empty($form_field['filter_options'][$info['value']]['#title'])) {
-                $form_field['filter_options'][$info['value']]['#title'] = $this->t('@label', ['@label' => $info['label']]);
+              if (empty($form_field[$info['value']]['#title'])) {
+                $form_field[$info['value']]['#title'] = $this->t('@label', ['@label' => $info['label']]);
               }
-              // Manually change the input type for datetime.
-              if ($handler->pluginId == 'datetime') {
-                $form_field['filter_options'][$info['value']]['#type'] = 'date';
+
+              if (empty($form_field[$info['value']]['#description']) && !empty($info['description'])) {
+                $form_field[$info['value']]['#description'] = $info['description'];
               }
 
               // Manually set default values, until we don't handle these
               // properly from form_state.
               // @todo: use (Sub)FormState to handle default_value.
-              if (isset($current_values['filter_options'][$info['value']])) {
-                if ($form_field['filter_options'][$info['value']]['#type'] == 'entity_autocomplete') {
-                  // Set values for taxonomy autocomplete field.
-                  $taxonomy_auto_default = $this->viewsUtility->buildAutocompleteTerms($current_values['filter_options'][$info['value']]);
-                  $form_field['filter_options'][$info['value']]['#default_value'] = $taxonomy_auto_default;
-                }
-                else {
-                  $form_field['filter_options'][$info['value']]['#default_value'] = $current_values['filter_options'][$info['value']];
-                }
-                $form_field['filter_options'][$info['value']]['#description'] = $handler->options['expose']['description'];
+              if (isset($current_values[$info['value']])) {
+                $form_field[$info['value']]['#default_value'] = $current_values[$info['value']];
               }
             }
           }
         }
       }
     }
-    // Hide fieldset if no exposed filters.
-    $form_field['filter_options']['#access'] = $exposed;
   }
 
   /**
    * {@inheritdoc}
    */
-  public function alterView(ViewExecutable $view, $values) {
+  public function alterView(ViewExecutable $view, $values)
+  {
     // Get exposed filter visibility, and remove configuration.
+    $vrExposedFiltersVisible = FALSE;
+    if (isset($values['vr_exposed_filters_visible'])) {
+      $vrExposedFiltersVisible = $values['vr_exposed_filters_visible'];
+      unset($values['vr_exposed_filters_visible']);
+    }
+
     if (!empty($values) && is_array($values)) {
-      $filter_options = $values['filter_options'];
-      unset($values['filter_options']);
-      if (!empty($filter_options) && is_array($filter_options)) {
-        // @todo: Handle without a for loop.
-        // Separate out the show on page values.
-        $show_filters_values = [];
-        foreach ($filter_options as $index => $value) {
-          if ((strpos($index, 'show_on_page') === 0)) {
-            $show_filters_values[$index] = $value;
-          }
-          elseif ((strpos($index, 'header_text') === FALSE)) {
-            $values[$index] = $value;
-          }
-        }
-        // Get view filters.
-        $set_filter = FALSE;
-        $view_filters = $view->display_handler->getOption('filters');
-        foreach ($show_filters_values as $index => $show_filter) {
-          // Get the filter name.
-          $index = str_replace('show_on_page_', '', $index);
-          // Set exposed filter.
-          $view_filters[$index]['exposed'] = $show_filter;
-
-          // Set values of the filter.
-          // @todo: Refactor switch case.
-          if (isset($view_filters[$index]['plugin_id'])) {
-            switch ($view_filters[$index]['plugin_id']) {
-              case 'taxonomy_index_tid':
-                // Set the filter values for taxonomy autocomplete.
-                if (!empty($values[$index])) {
-                  if ($view_filters[$index]['type'] == 'textfield') {
-                    // Set the filter values for taxonomy autocomplete.
-                    $view_filters[$index]['value'] = array_column($values[$index], 'target_id');
-                  }
-                  else {
-                    $view_filters[$index]['value'] = $values[$index];
-                  }
-                }
-                break;
-
-              case 'numeric':
-              case 'datetime':
-                // Set for numeric and date values.
-                if (!empty($values[$index])) {
-                  $view_filters[$index]['value']['value'] = $values[$index];
-                }
-                else {
-                  if (!$show_filter) {
-                    unset($view_filters[$index]);
-                  }
-                }
-                break;
-
-              case 'boolean':
-                // Handle the boolean values.
-                // @todo: Handling boolean field 'All' values for view filters.
-                $view_filters[$index]['value'] = $values[$index];
-                if ($view_filters[$index]['value'] == 'All' && !$show_filter) {
-                  unset($view_filters[$index]);
-                }
-                break;
-
-              default:
-                // Set default.
-                if (!empty($values[$index])) {
-                  $view_filters[$index]['value'] = $values[$index];
-                }
-                break;
-            }
-          }
-          $set_filter = TRUE;
-        }
-        // Set views filters with new values.
-        if ($set_filter) {
-          $view->display_handler->setOption('filters', $view_filters);
-        }
-        else {
-          // Force exposed filters form to not display when rendering the view.
-          $view->display_handler->setOption('exposed_block', TRUE);
+      $view_filters = $view->display_handler->getOption('filters');
+      $filters = [];
+      $filters_by_id = [];
+      foreach ($view_filters as $key => $filter) {
+        if (isset($filter['expose']['identifier'])) {
+          $filters_by_id[$filter['expose']['identifier']] = $key;
         }
       }
+      foreach ($values as $index => $value) {
+        if (!empty($value) && isset($filters_by_id[$index])) {
+          $filters[$index] = $value;
+        }
+      }
+      if ($filters) {
+        $view->setExposedInput($filters);
+      }
+    }
+
+    if (!$vrExposedFiltersVisible) {
+      // Force exposed filters form to not display when rendering the view.
+      $view->display_handler->setOption('exposed_block', TRUE);
+    }
+    else {
+      $view->display_handler->setOption('exposed_block', FALSE);
     }
   }
 

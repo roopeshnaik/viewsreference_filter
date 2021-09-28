@@ -6,3 +6,9 @@ core_version_requirement: ^8 || ^9
 package: 'Views'
 dependencies:
   - viewsreference:viewsreference
+  - views:views
+
+# Information added by Drupal.org packaging script on 2021-01-15
+version: '1.0.2'
+project: 'viewsreference_filter'
+datestamp: 1610747855

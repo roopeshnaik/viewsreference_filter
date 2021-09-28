@@ -49,23 +49,26 @@ class ViewsRefFilterUtility implements ViewsRefFilterUtilityInterface {
    * {@inheritdoc}
    */
   public function loadView($view_name, $display_id) {
-    $view = null;
-    if (!empty($view_name) && !empty($display_id)) {
-      try {
-        $view = $this->entityTypeManager
-          ->getStorage('view')
-          ->load($view_name);
-        $view = $this->viewsExecutableFactory->get($view);
-        $view->setDisplay($display_id);
-        $view->initHandlers();
+    static $view;
+
+    if (!isset($view)) {
+      if (!empty($view_name) && !empty($display_id)) {
+        try {
+          $view = $this->entityTypeManager
+            ->getStorage('view')
+            ->load($view_name);
+          $view = $this->viewsExecutableFactory->get($view);
+          $view->setDisplay($display_id);
+          $view->initHandlers();
+        }
+        catch (\Exception $e) {
+          $message = "Exception:" . $e;
+        }
       }
-      catch (\Exception $e) {
-        $message = "Exception:" . $e;
+      else {
+        $message = "Either the Views Name: '" . $view_name . "' ";
+        $message .= "or Dispay Id: '" . $display_id . "' were not set.";
       }
-    }
-    else {
-      $message = "Either the Views Name: '" . $view_name . "' ";
-      $message .= "or Dispay Id: '" . $display_id . "' were not set.";
     }
 
     // Log error $message if isset.
@@ -74,24 +77,6 @@ class ViewsRefFilterUtility implements ViewsRefFilterUtilityInterface {
     }
 
     return $view;
-  }
-
-  /**
-   * The utility function to format terms.
-   *
-   * @param array $tids
-   *   The term id array.
-   *
-   * @return string
-   *   The formatted terms.
-   */
-  public function buildAutocompleteTerms(array $tids) {
-    foreach ($tids as $tid => $value) {
-      $term = \Drupal::entityTypeManager()->getStorage('taxonomy_term')->load($value['target_id']);
-      $formatted_terms[] = $term->getName() . ' (' . $value['target_id'] . ')';
-    }
-    $formatted_terms_data = implode(', ', $formatted_terms);
-    return $formatted_terms_data;
   }
 
 }
